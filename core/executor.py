@@ -5,12 +5,12 @@ from safety.folder_analyzer import analyze_folder
 from healing.command_suggester import suggest_command
 
 
-def run_command(command):
+def run_command(command, stream_callback=None):
 
     command = command.strip()
 
     if not command:
-        return
+        return ""
 
     # ==============================
     # COMMAND SUGGESTION SYSTEM
@@ -23,7 +23,7 @@ def run_command(command):
         print(f"❌ Unknown command: {command}")
         print(f"💡 Did you mean: {suggestion} ?")
 
-        return
+        return ""
 
     # ==============================
     # ADMIN DELETE MODE
@@ -38,7 +38,7 @@ def run_command(command):
 
             if not os.path.exists(folder):
                 print(f"❌ Folder '{folder}' does not exist.")
-                return
+                return ""
 
             print("⚡ ADMIN DELETE MODE")
 
@@ -49,7 +49,7 @@ def run_command(command):
             command = f"rmdir /s /q {folder}"
 
             subprocess.run(["cmd", "/c", command])
-            return
+            return ""
 
     # ==============================
     # DANGER CHECK
@@ -78,7 +78,7 @@ def run_command(command):
 
         if confirm.lower() != "yes":
             print("❌ Command cancelled.")
-            return
+            return ""
 
     # ==============================
     # AUTO FIX FOR RMDIR
@@ -99,43 +99,56 @@ def run_command(command):
 
     if command == "cls":
         os.system("cls")
-        return
+        return ""
+
+    # ==============================
+    # HANDLE CD COMMAND
+    # ==============================
 
     if command.startswith("cd"):
 
         parts = command.split(maxsplit=1)
 
         if len(parts) == 1:
-            print(os.getcwd())
-            return
-
-        path = parts[1]
+            out = os.getcwd()
+            if stream_callback:
+                stream_callback(out + "\n")
+            return out
 
         try:
-            os.chdir(path)
+            os.chdir(parts[1])
+            out = f"Changed directory to {os.getcwd()}"
         except Exception as e:
-            print("Directory error:", e)
+            out = str(e)
 
-        return
+        if stream_callback:
+            stream_callback(out + "\n")
+
+        return out
 
     # ==============================
     # EXECUTE COMMAND
     # ==============================
 
-    try:
+    process = subprocess.Popen(
+        command,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
 
-        result = subprocess.run(
-            command,
-            shell=True,
-            text=True,
-            capture_output=True
-        )
+    output = ""
 
-        if result.stdout:
-            print(result.stdout.strip())
+    for line in iter(process.stdout.readline, ""):
 
-        if result.stderr:
-            print(result.stderr.strip())
+        output += line
 
-    except Exception as e:
-        print("Execution error:", e)
+        if stream_callback:
+            stream_callback(line)
+
+    process.stdout.close()
+    process.wait()
+
+    return output

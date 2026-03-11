@@ -9,16 +9,41 @@ from safety.danger_detector import check_dangerous_command
 from healing.error_agent import error_agent
 from healing.file_ops import create_folder, create_file
 
+# -------------------------------
+# NEW IMPORTS (ghost suggestions)
+# -------------------------------
+from healing.ghost_suggest import GhostSuggest
+
+ghost = GhostSuggest()
+
 
 def start_terminal():
 
     while True:
 
         try:
-            user_input = prompt(f"{os.getcwd()} > ").strip()
 
+            # -------------------------------
+            # UPDATED PROMPT WITH SUGGESTION
+            # -------------------------------
+            user_input = prompt(
+                f"{os.getcwd()} > ",
+                auto_suggest=ghost
+            ).strip()
+
+            # -------------------------------
+            # ACCEPT GHOST SUGGESTION ON ENTER
+            # -------------------------------
             if not user_input:
-                continue
+                suggestion = None
+                if hasattr(ghost, "get_next_command"):
+                    suggestion = ghost.get_next_command()
+
+                if suggestion:
+                    user_input = suggestion
+                    print(suggestion)
+                else:
+                    continue
 
             # Exit command
             if user_input.lower() == "exit":
@@ -134,7 +159,7 @@ ai: create file
                 # Check risk
                 risk =check_dangerous_command(command)
 
-                if risk == "HIGH":
+                if risk == "HIGH":  
                     print("⚠ Warning: This command may be dangerous.")
 
                 # Only suggest command, do not execute
@@ -146,6 +171,11 @@ ai: create file
             # =========================================================
 
             run_command(user_input)
+
+            # -------------------------------
+            # UPDATE GHOST SUGGESTION MEMORY
+            # -------------------------------
+            ghost.update_last_command(user_input)
 
 
         except KeyboardInterrupt:

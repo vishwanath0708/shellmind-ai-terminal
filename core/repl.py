@@ -192,6 +192,17 @@ ai: chat
                     continue
 
                 # ----------------------------------------------
+                # SNAPSHOT COMMANDS
+                # ----------------------------------------------
+                if query.startswith("snapshot "):
+                    from snapshot.commands import handle_snapshot_query
+
+                    result = handle_snapshot_query(query)
+                    if result is not None:
+                        print(result)
+                        continue
+
+                # ----------------------------------------------
                 # AI COMMAND GENERATION
                 # ----------------------------------------------
 

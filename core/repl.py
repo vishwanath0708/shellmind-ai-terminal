@@ -9,10 +9,9 @@ from safety.danger_detector import check_dangerous_command
 from healing.error_agent import error_agent
 from healing.file_ops import create_folder, create_file
 
-# -------------------------------
-# NEW IMPORTS (ghost suggestions)
-# -------------------------------
 from healing.ghost_suggest import GhostSuggest
+from safety.file_analyzer import analyze_file
+from safety.folder_analyzer import analyze_folder
 
 ghost = GhostSuggest()
 
@@ -23,17 +22,11 @@ def start_terminal():
 
         try:
 
-            # -------------------------------
-            # UPDATED PROMPT WITH SUGGESTION
-            # -------------------------------
             user_input = prompt(
                 f"{os.getcwd()} > ",
                 auto_suggest=ghost
             ).strip()
 
-            # -------------------------------
-            # ACCEPT GHOST SUGGESTION ON ENTER
-            # -------------------------------
             if not user_input:
                 suggestion = None
                 if hasattr(ghost, "get_next_command"):
@@ -45,77 +38,103 @@ def start_terminal():
                 else:
                     continue
 
-            # Exit command
             if user_input.lower() == "exit":
                 print("Exiting ShellMind...")
                 break
 
-
-            # =========================================================
+            # =====================================================
             # AI MODE
-            # =========================================================
+            # =====================================================
 
             if user_input.lower().startswith("ai:"):
 
                 query = user_input[3:].strip().lower()
 
+                # ----------------------------------------------
+                # AI CHAT MODE
+                # ----------------------------------------------
+
+                if query == "chat":
+
+                    print("\n🤖 ShellMind AI Chat Mode")
+                    print("Type 'exit' to leave chat.\n")
+
+                    while True:
+
+                        user_msg = input("You > ")
+
+                        if user_msg.lower() in ["exit", "quit"]:
+                            print("Leaving AI chat mode...\n")
+                            break
+
+                        context = detect_context()
+                        os_type = get_os()
+
+                        ai_response = ask_ai(user_msg, context, os_type)
+
+                        if not ai_response:
+                            print("⚠️ AI could not generate a response.")
+                        else:
+
+                            if ai_response.startswith("echo"):
+                                ai_response = ai_response.replace("echo", "").strip().strip('"')
+
+                            print("\n══════════════════════════════")
+                            print("🤖 ShellMind AI")
+                            print("══════════════════════════════")
+                            print(ai_response)
+                            print("══════════════════════════════\n")
+
+                    continue
+
+                # ----------------------------------------------
+                # HELP
+                # ----------------------------------------------
 
                 if query == "help":
 
                     print("""
 ShellMind AI Commands
 
-Error Agent:
+Project Analysis
+----------------
 ai: scan project
+ai: show errors
+ai: explain errors
+ai: fix errors
+ai: fix file <path>
+ai: clear errors
+
+File Operations
+---------------
 ai: create folder
 ai: create file
 
+Chat
+----
+ai: chat
 """)
-
                     continue
 
-
-                # -----------------------------------------------------
-                # ERROR AGENT COMMANDS
-                # -----------------------------------------------------
+                # ----------------------------------------------
+                # ERROR AGENT
+                # ----------------------------------------------
 
                 if query == "scan project":
-
-                    result = error_agent.cmd_scan(os.getcwd())
-                    print(result)
+                    print(error_agent.cmd_scan(os.getcwd()))
                     continue
-
 
                 if query == "show errors":
-
-                    result = error_agent.cmd_show_errors(os.getcwd())
-                    print(result)
-                    continue
-
-                if query == "create folder":
-
-                    create_folder()
-                    continue
-
-
-                if query == "create file":
-
-                    create_file()
+                    print(error_agent.cmd_show_errors(os.getcwd()))
                     continue
 
                 if query == "explain errors":
-
-                    result = error_agent.cmd_explain_errors()
-                    print(result)
+                    print(error_agent.cmd_explain_errors())
                     continue
-
 
                 if query == "fix errors":
-
-                    result = error_agent.cmd_fix_all(os.getcwd())
-                    print(result)
+                    print(error_agent.cmd_fix_all(os.getcwd()))
                     continue
-
 
                 if query.startswith("fix file"):
 
@@ -127,21 +146,44 @@ ai: create file
 
                     filepath = parts[2]
 
-                    result = error_agent.cmd_fix_file(filepath, os.getcwd())
-                    print(result)
+                    print(error_agent.cmd_fix_file(filepath, os.getcwd()))
                     continue
-
 
                 if query == "clear errors":
-
-                    result = error_agent.cmd_clear_errors(os.getcwd())
-                    print(result)
+                    print(error_agent.cmd_clear_errors(os.getcwd()))
                     continue
 
+                # ----------------------------------------------
+                # FILE OPS
+                # ----------------------------------------------
 
-                # -----------------------------------------------------
-                # NORMAL AI COMMAND GENERATION
-                # -----------------------------------------------------
+                if query == "create folder":
+
+                    name = prompt("Enter folder name: ").strip()
+
+                    if not name:
+                        print("Folder name cannot be empty.")
+                        continue
+
+                    create_folder(name)
+                    print(f"✔ Folder '{name}' created.")
+                    continue
+
+                if query == "create file":
+
+                    name = prompt("Enter file name: ").strip()
+
+                    if not name:
+                        print("File name cannot be empty.")
+                        continue
+
+                    create_file(name)
+                    print(f"✔ File '{name}' created.")
+                    continue
+
+                # ----------------------------------------------
+                # AI COMMAND GENERATION
+                # ----------------------------------------------
 
                 context = detect_context()
                 os_type = get_os()
@@ -156,27 +198,57 @@ ai: create file
                 print(f"  {command}")
                 print("──────────────────────────────")
 
-                # Check risk
-                risk =check_dangerous_command(command)
+                risk = check_dangerous_command(command)
 
-                if risk == "HIGH":  
+                if risk == "HIGH":
                     print("⚠ Warning: This command may be dangerous.")
 
-                # Only suggest command, do not execute
                 continue
 
-
-            # =========================================================
+            # =====================================================
             # NORMAL TERMINAL COMMANDS
-            # =========================================================
+            # =====================================================
+
+            parts = user_input.split()
+
+            if parts and parts[0].lower() == "admin":
+
+                if len(parts) < 3:
+                    print("Usage: admin del <file> OR admin rmdir <folder>")
+                    continue
+
+                action = parts[1].lower()
+                target = parts[2]
+
+                if action in ["del", "delete"]:
+
+                    if not os.path.exists(target):
+                        print("❌ File does not exist.")
+                        continue
+
+                    analyze_file(target)
+
+                    os.remove(target)
+
+                    print(f"✔ File '{target}' deleted.")
+                    continue
+
+                if action == "rmdir":
+
+                    if not os.path.exists(target):
+                        print("❌ Folder does not exist.")
+                        continue
+
+                    analyze_folder(target)
+
+                    os.rmdir(target)
+
+                    print(f"✔ Folder '{target}' deleted.")
+                    continue
 
             run_command(user_input)
 
-            # -------------------------------
-            # UPDATE GHOST SUGGESTION MEMORY
-            # -------------------------------
             ghost.update_last_command(user_input)
-
 
         except KeyboardInterrupt:
             print("\nUse 'exit' to quit ShellMind.")

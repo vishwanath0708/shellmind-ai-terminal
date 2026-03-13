@@ -113,6 +113,8 @@ def run_command(command, stream_callback=None):
             out = os.getcwd()
             if stream_callback:
                 stream_callback(out + "\n")
+            else:
+                print(out)
             return out
 
         try:
@@ -123,6 +125,8 @@ def run_command(command, stream_callback=None):
 
         if stream_callback:
             stream_callback(out + "\n")
+        else:
+            print(out)
 
         return out
 
@@ -147,6 +151,8 @@ def run_command(command, stream_callback=None):
 
         if stream_callback:
             stream_callback(line)
+        else:
+            print(line, end="")
 
     process.stdout.close()
     process.wait()

@@ -1,34 +1,46 @@
 import requests
+import json
 import re
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "tinyllama"
+MODEL = "mistral:latest"
 
 
-def ask_ollama(prompt):
+def ask_ollama(prompt, mode="chat"):
 
     try:
+
         response = requests.post(
             OLLAMA_URL,
             json={
                 "model": MODEL,
                 "prompt": prompt,
-                "stream": False
-            }
+                "stream": True
+            },
+            stream=True
         )
 
-        data = response.json()
-        text = data.get("response", "").strip()
+        full_text = ""
 
-        # extract command inside backticks
-        match = re.search(r"`([^`]+)`", text)
+        for line in response.iter_lines():
 
-        if match:
-            command = match.group(1)
-        else:
-            command = text.split("\n")[0]
+            if line:
+                data = json.loads(line.decode("utf-8"))
 
-        return command.strip()
+                token = data.get("response", "")
+                print(token, end="", flush=True)
+                full_text += token
+
+        print()
+
+        if mode == "command":
+            match = re.search(r"`([^`]+)`", full_text)
+            if match:
+                return match.group(1)
+
+            return full_text.split("\n")[0]
+
+        return full_text
 
     except Exception as e:
         print("AI Error:", e)
